@@ -1,0 +1,65 @@
+import axios from 'axios';
+
+const API_BASE = process.env.REACT_APP_API_URL || '/api';
+
+const api = axios.create({ baseURL: API_BASE, timeout: 60000, headers: { 'Content-Type': 'application/json' } });
+
+api.interceptors.request.use((config) => {
+  const session = getSession();
+  if (session?.token) config.headers.Authorization = `Bearer ${session.token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      const code = err.response?.data?.code;
+      if (code === 'TOKEN_EXPIRED' || code === 'INVALID_TOKEN') {
+        clearSession();
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(err);
+  }
+);
+
+const SESSION_KEY = 'rag_session';
+const SESSION_TTL = 24 * 60 * 60 * 1000;
+
+export function saveSession(token, user) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ token, user, expiresAt: Date.now() + SESSION_TTL }));
+}
+
+export function getSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (Date.now() > session.expiresAt) { clearSession(); return null; }
+    return session;
+  } catch { return null; }
+}
+
+export function clearSession() { localStorage.removeItem(SESSION_KEY); }
+export function isAuthenticated() { return !!getSession(); }
+
+export const authAPI = {
+  sendOTP: (data) => api.post('/auth/send-otp', data),
+  verifyOTP: (email, otp) => api.post('/auth/verify-otp', { email, otp }),
+  logout: () => api.post('/auth/logout'),
+  me: () => api.get('/auth/me')
+};
+
+export const userAPI = {
+  getProfile: () => api.get('/user/profile'),
+  updateProfile: (data) => api.put('/user/profile', data)
+};
+
+export const chatAPI = {
+  sendQuery: (query, sessionId) => api.post('/chat/send-query', { query, sessionId }),
+  getHistory: (page = 1, limit = 20) => api.get(`/chat/history?page=${page}&limit=${limit}`),
+  deleteChat: (chatId) => api.delete(`/chat/${chatId}`)
+};
+
+export default api;

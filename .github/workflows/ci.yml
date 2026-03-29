@@ -1,0 +1,58 @@
+name: CI
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-api-gateway:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/api-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm test --if-present
+
+  test-rag-connector:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/rag-connector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm test --if-present
+
+  test-rag-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rag-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile main.py src/config.py src/api/routes.py src/pipeline/rag_pipeline.py src/pipeline/cache.py
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npm run build
+        env:
+          CI: false
+          REACT_APP_API_URL: http://localhost:5001/api

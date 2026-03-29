@@ -1,0 +1,111 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: rag_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: rag_mern_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rag_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: Dockerfile
+    container_name: rag_python_service
+    restart: unless-stopped
+    env_file: ./rag-service/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./rag-service/documents:/app/documents
+      - ./rag-service/vectorstore:/app/vectorstore
+      - ./rag-service/cache:/app/cache
+    networks:
+      - rag_network
+
+  rag-connector:
+    build:
+      context: ./backend/rag-connector
+      dockerfile: Dockerfile
+    container_name: rag_connector
+    restart: unless-stopped
+    env_file: ./backend/rag-connector/.env
+    environment:
+      - REDIS_HOST=redis
+      - RAG_SERVICE_URL=http://rag-service:8000
+    ports:
+      - "5002:5002"
+    depends_on:
+      - redis
+      - rag-service
+    networks:
+      - rag_network
+
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: rag_api_gateway
+    restart: unless-stopped
+    env_file: ./backend/api-gateway/.env
+    environment:
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/rag_mern_db?authSource=admin
+      - RAG_CONNECTOR_URL=http://rag-connector:5002
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongodb
+      - rag-connector
+    networks:
+      - rag_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rag_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - rag_network
+
+networks:
+  rag_network:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:

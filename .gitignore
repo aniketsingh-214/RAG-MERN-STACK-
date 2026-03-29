@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+.env
+*.log
+logs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+rag-service/vectorstore/
+rag-service/cache/
+rag-service/documents/
+.DS_Store
+Thumbs.db
+.vscode/
