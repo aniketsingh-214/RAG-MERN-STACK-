@@ -4,10 +4,11 @@ from pathlib import Path
 
 class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
-    LLM_MODEL: str = "gpt-3.5-turbo"
+    GEMINI_API_KEY: str = ""
+    LLM_MODEL: str = "gemini-1.5-flash"
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 1024
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_MODEL: str = "models/embedding-001"
     VECTORSTORE_PATH: str = "./vectorstore"
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200

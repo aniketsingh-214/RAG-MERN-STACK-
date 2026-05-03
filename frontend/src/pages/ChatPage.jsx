@@ -121,7 +121,7 @@ export default function ChatPage() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-3">Ask anything</h2>
               <p className="text-zinc-400 text-sm mb-10 leading-relaxed">
-                Upload a PDF document and ask questions about its content.<br />
+                Upload a PDF document in the <Link to="/dashboard/upload" className="text-brand-500 hover:underline font-medium">Knowledge Base</Link> and ask questions about its content.<br />
                 The AI will retrieve relevant context and generate precise answers.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

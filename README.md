@@ -1,98 +1,99 @@
-# RAG Assistant - MERN + Microservices
+# RAG Assistant - MERN + FastAPI (Simplified Architecture)
 
-A production-ready full-stack AI application with React frontend, two Node.js microservices, and a Python FastAPI RAG service.
+A robust, multi-user Retrieval-Augmented Generation (RAG) application. This version features a simplified architecture optimized for deployment on Render (Backend) and Vercel (Frontend).
 
-## Architecture
+## 🏗️ Architecture
 
 ```
-React Frontend (port 3000)
-       |
-API Gateway - Node.js (port 5001)
-   Auth (OTP/JWT) | User CRUD | Chat Storage
-       |
-RAG Connector - Node.js (port 5002)
-   Redis Cache | Retry Logic | Timeout Handling
-       |
-RAG Service - Python FastAPI (port 8000)
-   PDF Ingestion | FAISS | LangChain | OpenAI
-       |
-MongoDB (port 27017)  +  Redis (port 6379)
+React Frontend (Vercel)
+        |
+API Gateway - Node.js (Render)
+    Auth (OTP/JWT) | User CRUD | Chat History | Document Metadata
+        |
+RAG Service - Python FastAPI (Render)
+    PDF Ingestion | ChromaDB (Local/Persistent) | Gemini AI
+        |
+MongoDB Atlas
 ```
 
-## Quick Start (Docker)
+### Key Enhancements:
+- **Simplified Backend**: Removed the intermediary `rag-connector`. The API Gateway now communicates directly with the RAG service.
+- **Multi-User Aware**: Documents are indexed into user-specific collections. Users can only query their own uploaded data.
+- **Improved UI**: Streamlined OTP verification and a dedicated document management dashboard.
+- **Zero Redis Dependency**: Architecture simplified to work without Redis for easier deployment.
 
-1. Copy and fill environment files:
+---
+
+## 🚀 Local Development
+
+### 1. Prerequisites
+- Node.js & npm
+- Python 3.9+
+- MongoDB (Local or Atlas)
+- Gemini API Key (Google AI Studio)
+
+### 2. Setup RAG Service (Python)
 ```bash
-cp backend/api-gateway/.env.example   backend/api-gateway/.env
-cp backend/rag-connector/.env.example backend/rag-connector/.env
-cp rag-service/.env.example           rag-service/.env
-```
-
-2. Required secrets:
-   - `backend/api-gateway/.env`: Set `JWT_SECRET`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `INTERNAL_API_KEY`
-   - `backend/rag-connector/.env`: Set same `INTERNAL_API_KEY`
-   - `rag-service/.env`: Set `OPENAI_API_KEY`
-
-3. Launch:
-```bash
-docker compose up --build
-```
-
-Open http://localhost:3000
-
-## Local Development
-
-Terminal 1 - RAG Service:
-```bash
-cd rag-service && python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && cp .env.example .env
+cd rag-service
+python -m venv .venv
+# Windows: .venv\Scripts\activate | Linux/Mac: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env # Add your GEMINI_API_KEY
 uvicorn main:app --port 8000 --reload
 ```
 
-Terminal 2 - RAG Connector:
+### 3. Setup API Gateway (Node.js)
 ```bash
-cd backend/rag-connector && npm install && cp .env.example .env
+cd backend/api-gateway
+npm install
+cp .env.example .env # Set MONGODB_URI, JWT_SECRET, and RAG_SERVICE_URL (http://localhost:8000)
 npm run dev
 ```
 
-Terminal 3 - API Gateway:
+### 4. Setup Frontend (React)
 ```bash
-cd backend/api-gateway && npm install && cp .env.example .env
-npm run dev
+cd frontend
+npm install
+npm start
 ```
 
-Terminal 4 - Frontend:
-```bash
-cd frontend && npm install && npm start
-```
+---
 
-## API Endpoints
+## 🛠️ API Endpoints
 
-### Auth
-- `POST /api/auth/send-otp` - Send OTP to email
-- `POST /api/auth/verify-otp` - Verify OTP, receive JWT
-- `POST /api/auth/logout` - Logout (Bearer)
-- `GET  /api/auth/me` - Current user (Bearer)
+### Auth & User
+- `POST /api/auth/send-otp` - Send verification code
+- `POST /api/auth/verify-otp` - Verify code & login
+- `GET  /api/user/profile` - User account details
 
-### User
-- `GET  /api/user/profile` - Get profile (Bearer)
-- `PUT  /api/user/profile` - Update profile (Bearer)
+### Knowledge Base (Document Upload)
+- `POST /api/upload` - Upload & index a PDF (Multi-user)
+- `GET  /api/upload` - List user's indexed documents
+- `DELETE /api/upload/:id` - Remove a document from index
 
-### Chat
-- `POST /api/chat/send-query` - Send query (Bearer)
-- `GET  /api/chat/history` - Chat history (Bearer)
-- `DELETE /api/chat/:id` - Delete chat (Bearer)
+### Chat & RAG
+- `POST /api/chat/send-query` - Query your documents
+- `GET  /api/chat/history` - Retrieve chat history
 
-### RAG Service (internal)
-- `POST /query` - Query documents
-- `POST /upload` - Upload PDF
-- `GET  /stats` - Pipeline stats
-- `DELETE /cache` - Clear cache
+---
 
-## Tech Stack
-- **Frontend**: React 18, Tailwind CSS, React Router, Axios
-- **API Gateway**: Node.js, Express, Mongoose, Nodemailer, JWT
-- **RAG Connector**: Node.js, Express, ioredis, Axios
-- **RAG Service**: Python, FastAPI, LangChain, FAISS, HuggingFace Embeddings, OpenAI
-- **Database**: MongoDB, Redis
-- **DevOps**: Docker, Docker Compose, Nginx
+## 🧰 Tech Stack
+- **Frontend**: React 18, Tailwind CSS, Lucide Icons, React Dropzone
+- **API Gateway**: Node.js, Express, Mongoose (MongoDB), Nodemailer (OTP)
+- **RAG Service**: Python FastAPI, ChromaDB (Vector Store), PyPDF, Google Generative AI (Gemini)
+- **Database**: MongoDB Atlas
+- **Deployment**: Vercel (Frontend), Render (Backends)
+
+---
+
+## 🔐 Environment Variables
+
+### API Gateway
+- `MONGODB_URI`: Connection string
+- `JWT_SECRET`: Signing key
+- `RAG_SERVICE_URL`: URL of the FastAPI service
+- `SMTP_*`: Credentials for OTP emails
+
+### RAG Service
+- `GEMINI_API_KEY`: Your Google AI API key
+- `VECTORSTORE_PATH`: Path for ChromaDB storage

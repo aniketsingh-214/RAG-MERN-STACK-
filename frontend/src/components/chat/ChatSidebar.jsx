@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Trash2, ChevronLeft, Sparkles, LogOut, Clock } from 'lucide-react';
+import { MessageSquare, Trash2, ChevronLeft, Sparkles, LogOut, Clock, FileUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ChatSidebar({ open, onToggle, history, loading, onSelectChat, onDeleteChat, user, onLogout }) {
@@ -29,8 +29,16 @@ export default function ChatSidebar({ open, onToggle, history, loading, onSelect
         </button>
       </div>
 
-      <div className="px-4 pt-5 pb-2">
-        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Chat History</p>
+      <div className="px-3 pt-4 pb-2">
+        <Link to="/dashboard/upload" 
+          className="flex items-center gap-3 w-full p-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium transition mb-4 shadow-sm border border-zinc-700/50"
+        >
+          <div className="w-8 h-8 rounded-lg bg-brand-500/20 flex items-center justify-center text-brand-500">
+            <FileUp className="w-4 h-4" />
+          </div>
+          <span>Knowledge Base</span>
+        </Link>
+        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] px-1 mb-2">History</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2">

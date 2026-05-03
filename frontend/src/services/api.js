@@ -62,4 +62,12 @@ export const chatAPI = {
   deleteChat: (chatId) => api.delete(`/chat/${chatId}`)
 };
 
+export const uploadAPI = {
+  upload: (formData) => api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getDocuments: () => api.get('/upload'),
+  deleteDocument: (id) => api.delete(`/upload/${id}`)
+};
+
 export default api;

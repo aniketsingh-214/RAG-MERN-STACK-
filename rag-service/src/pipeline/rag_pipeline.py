@@ -1,17 +1,14 @@
 import os
 import hashlib
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from loguru import logger
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.schema import Document
+import chromadb
+from chromadb.config import Settings as ChromaSettings
+import google.generativeai as genai
+from pypdf import PdfReader
 
 from src.config import settings
 from src.pipeline.cache import QueryCache
@@ -28,128 +25,221 @@ Question: {question}
 Answer:"""
 
 
+class SimpleTextSplitter:
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+
+    def split_text(self, text: str) -> List[str]:
+        if not text:
+            return []
+        
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + self.chunk_size
+            chunks.append(text[start:end])
+            start += self.chunk_size - self.chunk_overlap
+        return chunks
+
+
 class RAGPipeline:
     def __init__(self):
-        self.vectorstore: Optional[FAISS] = None
-        self.embeddings = None
-        self.llm = None
-        self.qa_chain = None
+        self.chroma_client: Optional[chromadb.PersistentClient] = None
+        self.collection: Optional[chromadb.Collection] = None
+        self.model: Optional[genai.GenerativeModel] = None
         self.cache = QueryCache(cache_dir=settings.CACHE_DIR, ttl=settings.CACHE_TTL, enabled=settings.ENABLE_CACHE)
-        self.text_splitter = RecursiveCharacterTextSplitter(
+        self.text_splitter = SimpleTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
-            chunk_overlap=settings.CHUNK_OVERLAP,
-            separators=["\n\n", "\n", ". ", " ", ""]
+            chunk_overlap=settings.CHUNK_OVERLAP
         )
 
     async def initialize(self):
-        logger.info("Loading embedding model...")
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=settings.EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True}
-        )
-        logger.info(f"Embeddings ready: {settings.EMBEDDING_MODEL}")
+        logger.info("Initializing Lightweight Gemini RAG Pipeline...")
+        
+        # Initialize Gemini
+        api_key = settings.GEMINI_API_KEY.strip() if settings.GEMINI_API_KEY else ""
+        if api_key and api_key != "YOUR_GEMINI_API_KEY_HERE":
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel(settings.LLM_MODEL)
+            logger.info(f"Gemini model {settings.LLM_MODEL} initialized")
+        else:
+            logger.warning("No valid GEMINI_API_KEY found - Pipeline will be limited")
 
-        vs_path = Path(settings.VECTORSTORE_PATH) / "faiss_index"
-        if vs_path.exists():
-            try:
-                self.vectorstore = FAISS.load_local(
-                    str(vs_path), self.embeddings, allow_dangerous_deserialization=True
-                )
-                logger.info(f"Loaded FAISS index from {vs_path}")
-            except Exception as e:
-                logger.warning(f"Could not load index: {e}. Starting fresh.")
-
-        self._init_llm()
-        if self.vectorstore:
-            self._build_qa_chain()
-        logger.info("Pipeline initialized")
-
-    def _init_llm(self):
-        if settings.OPENAI_API_KEY:
-            self.llm = ChatOpenAI(
-                model=settings.LLM_MODEL,
-                temperature=settings.LLM_TEMPERATURE,
-                max_tokens=settings.LLM_MAX_TOKENS,
-                openai_api_key=settings.OPENAI_API_KEY
+        # Initialize ChromaDB
+        try:
+            chroma_path = Path(settings.VECTORSTORE_PATH) / "chroma"
+            chroma_path.mkdir(parents=True, exist_ok=True)
+            self.chroma_client = chromadb.PersistentClient(path=str(chroma_path))
+            
+            self.collection = self.chroma_client.get_or_create_collection(
+                name="rag_documents",
+                metadata={"hnsw:space": "cosine"}
             )
-            logger.info(f"LLM ready: {settings.LLM_MODEL}")
-        else:
-            logger.warning("No OPENAI_API_KEY - LLM disabled")
+            logger.info("ChromaDB initialized")
+        except Exception as e:
+            logger.error(f"ChromaDB init failed: {e}")
+            raise
 
-    def _build_qa_chain(self):
-        if not self.llm or not self.vectorstore:
-            return
-        retriever = self.vectorstore.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={"k": settings.TOP_K_RESULTS, "score_threshold": settings.SIMILARITY_THRESHOLD}
+    def _get_user_collection(self, user_id: str):
+        if not self.chroma_client:
+            raise ValueError("ChromaDB client not initialized")
+        
+        collection_name = f"user_{user_id}" if user_id else "rag_documents"
+        return self.chroma_client.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"}
         )
-        prompt = PromptTemplate(template=PROMPT_TEMPLATE, input_variables=["context", "question"])
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=retriever,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt}
-        )
-        logger.info("QA chain built")
 
-    async def ingest_pdf(self, file_path: str, filename: str) -> Dict[str, Any]:
+    logger.info("Pipeline ready")
+
+    async def ingest_pdf(self, file_path: str, filename: str, user_id: str = None) -> Dict[str, Any]:
+        if not self.model:
+            raise ValueError("Gemini model not initialized. Check API Key.")
+
         logger.info(f"Ingesting: {filename}")
-        loader = PyPDFLoader(file_path)
-        raw_docs = loader.load()
-        if not raw_docs:
-            raise ValueError(f"No content extracted from {filename}")
+        
+        # Extract text
+        reader = PdfReader(file_path)
+        pages_content = []
+        for i, page in enumerate(reader.pages):
+            text = page.extract_text()
+            if text:
+                pages_content.append({"page": i + 1, "text": text})
+        
+        if not pages_content:
+            raise ValueError(f"No text extracted from {filename}")
 
-        chunks = self.text_splitter.split_documents(raw_docs)
+        # Split
+        all_chunks = []
+        all_metadatas = []
+        all_ids = []
         file_hash = self._hash_file(file_path)
-        for chunk in chunks:
-            chunk.metadata["source"] = filename
-            chunk.metadata["file_hash"] = file_hash
+        
+        for p in pages_content:
+            chunks = self.text_splitter.split_text(p["text"])
+            for i, chunk in enumerate(chunks):
+                all_chunks.append(chunk)
+                all_metadatas.append({
+                    "source": filename,
+                    "page": p["page"],
+                    "file_hash": file_hash,
+                    "chunk_index": i
+                })
+                all_ids.append(f"{file_hash}_{p['page']}_{i}")
 
-        logger.info(f"Split into {len(chunks)} chunks from {len(raw_docs)} pages")
-
-        if self.vectorstore is None:
-            self.vectorstore = FAISS.from_documents(chunks, self.embeddings)
-        else:
-            self.vectorstore.add_documents(chunks)
-
-        vs_path = Path(settings.VECTORSTORE_PATH) / "faiss_index"
-        self.vectorstore.save_local(str(vs_path))
-        self._build_qa_chain()
-        self.cache.clear()
-
-        logger.info(f"Indexed {filename}: {len(chunks)} chunks")
-        return {"filename": filename, "pages": len(raw_docs), "chunks": len(chunks), "status": "indexed"}
+        # Generate Embeddings (Gemini)
+        logger.info(f"Generating embeddings for {len(all_chunks)} chunks using {settings.EMBEDDING_MODEL}...")
+        try:
+            # Gemini embedding API supports batching
+            result = genai.embed_content(
+                model=settings.EMBEDDING_MODEL,
+                content=all_chunks,
+                task_type="retrieval_document"
+            )
+            embeddings = result['embedding']
+            
+            # Upsert into ChromaDB
+            collection = self._get_user_collection(user_id)
+            collection.upsert(
+                ids=all_ids,
+                embeddings=embeddings,
+                metadatas=all_metadatas,
+                documents=all_chunks
+            )
+            
+            logger.info(f"Indexed {filename}: {len(all_chunks)} chunks")
+            self.cache.clear()
+            
+            return {
+                "filename": filename, 
+                "pages": len(reader.pages), 
+                "chunks": len(all_chunks), 
+                "status": "indexed"
+            }
+        except Exception as e:
+            logger.error(f"Ingestion failed: {e}")
+            raise
 
     async def query(self, question: str, user_id: str = None) -> Dict[str, Any]:
         if not question.strip():
             raise ValueError("Query cannot be empty")
+
+        if not self.model:
+            return {"answer": "Gemini API key not configured. Please replace 'YOUR_GEMINI_API_KEY_HERE' in the .env file with your actual API key.", "sources": [], "from_cache": False}
 
         cached = self.cache.get(question)
         if cached:
             logger.info("Cache hit")
             return {**cached, "from_cache": True}
 
-        if not self.vectorstore:
-            return {"answer": "No documents indexed yet. Please upload a PDF first.", "sources": [], "from_cache": False, "model": None}
-
-        if not self.qa_chain:
-            return {"answer": "AI model not configured. Set OPENAI_API_KEY in environment.", "sources": [], "from_cache": False, "model": None}
-
         try:
-            logger.info(f"Processing query: {question[:80]}")
-            result = self.qa_chain.invoke({"query": question})
-            answer = result.get("result", "No relevant answer found.")
-            source_docs: List[Document] = result.get("source_documents", [])
-            sources = [
-                {"content": doc.page_content[:300], "source": doc.metadata.get("source", "Unknown"),
-                 "page": doc.metadata.get("page"), "score": doc.metadata.get("score")}
-                for doc in source_docs
-            ]
-            response = {"answer": answer, "sources": sources, "from_cache": False, "model": settings.LLM_MODEL}
-            self.cache.set(question, response)
-            return response
+            # 1. Embed the query
+            query_embedding_res = genai.embed_content(
+                model=settings.EMBEDDING_MODEL,
+                content=question,
+                task_type="retrieval_query"
+            )
+            query_embedding = query_embedding_res['embedding']
+
+            # 2. Retrieve from ChromaDB
+            collection = self._get_user_collection(user_id)
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=settings.TOP_K_RESULTS,
+                include=["documents", "metadatas", "distances"]
+            )
+
+            # 3. Format Context
+            context_list = []
+            sources = []
+            
+            if results["documents"] and len(results["documents"][0]) > 0:
+                for i in range(len(results["documents"][0])):
+                    doc = results["documents"][0][i]
+                    meta = results["metadatas"][0][i]
+                    dist = results["distances"][0][i]
+                    
+                    score = 1 - dist 
+                    if score < settings.SIMILARITY_THRESHOLD:
+                        continue
+                        
+                    context_list.append(doc)
+                    sources.append({
+                        "content": doc[:300] + "...",
+                        "source": meta.get("source", "Unknown"),
+                        "page": meta.get("page"),
+                        "score": round(float(score), 4)
+                    })
+
+            if not context_list:
+                return {"answer": "I couldn't find any relevant information in the documents to answer your question.", "sources": [], "from_cache": False}
+
+            context_text = "\n\n---\n\n".join(context_list)
+            
+            # 4. Generate Answer (Gemini)
+            prompt = PROMPT_TEMPLATE.format(context=context_text, question=question)
+            
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_output_tokens=settings.LLM_MAX_TOKENS
+                )
+            )
+            
+            answer = response.text
+            
+            res = {
+                "answer": answer, 
+                "sources": sources, 
+                "from_cache": False, 
+                "model": settings.LLM_MODEL
+            }
+            
+            self.cache.set(question, res)
+            return res
+
         except Exception as e:
             logger.error(f"Query failed: {e}")
             raise
@@ -163,9 +253,9 @@ class RAGPipeline:
 
     def get_stats(self) -> Dict[str, Any]:
         return {
-            "vectorstore_loaded": self.vectorstore is not None,
-            "llm_ready": self.llm is not None,
-            "qa_chain_ready": self.qa_chain is not None,
+            "vectorstore_type": "ChromaDB",
+            "collection_count": self.collection.count() if self.collection else 0,
+            "llm_ready": self.model is not None,
             "cache_size": self.cache.size(),
             "model": settings.LLM_MODEL,
             "embedding_model": settings.EMBEDDING_MODEL

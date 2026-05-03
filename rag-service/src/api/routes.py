@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request, Form
 from pydantic import BaseModel, Field
 from loguru import logger
 from src.config import settings
@@ -30,7 +30,11 @@ async def query_documents(request: Request, body: QueryRequest):
 
 
 @router.post("/upload")
-async def upload_document(request: Request, file: UploadFile = File(...)):
+async def upload_document(
+    request: Request, 
+    file: UploadFile = File(...),
+    user_id: str = Form(...)
+):
     pipeline = request.app.state.rag_pipeline
     if pipeline is None:
         raise HTTPException(status_code=503, detail="RAG pipeline not ready")
@@ -44,7 +48,7 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
             raise HTTPException(status_code=413, detail="File too large (max 50MB)")
         with open(temp_path, "wb") as f:
             f.write(content)
-        result = await pipeline.ingest_pdf(str(temp_path), file.filename)
+        result = await pipeline.ingest_pdf(str(temp_path), file.filename, user_id=user_id)
         return {"success": True, **result}
     except HTTPException:
         raise
