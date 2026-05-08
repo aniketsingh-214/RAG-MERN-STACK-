@@ -27,6 +27,11 @@ This project is optimized for deployment on Railway. Since it's a monorepo with 
     - **Root Directory**: `backend/api-gateway`
 3.  **Variables**:
     - `MONGODB_URI`: (Your MongoDB Atlas Connection String)
+    
+    > [!WARNING]
+    > **Do NOT use quotes** around variable values in the Railway Dashboard. 
+    > Incorrect: `"mongodb+srv://..."`
+    > Correct: `mongodb+srv://...`
     - `JWT_SECRET`: (Any random long string)
     - `RAG_SERVICE_URL`: (The public URL of the RAG Service created in Step 1)
     - `FRONTEND_URL`: (The URL of the Frontend service created in Step 3 - can update later)
