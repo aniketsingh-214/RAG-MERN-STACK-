@@ -15,6 +15,7 @@ This project is optimized for deployment on Railway. Since it's a monorepo with 
     - `GEMINI_API_KEY`: (Your Google API Key)
     - `LLM_MODEL`: `gemini-1.5-flash`
     - `PYTHON_VERSION`: `3.10`
+    - `NIXPACKS_PYTHON_VERSION`: `3.10`
 4.  **Networking**: Railway will automatically assign a public URL. Copy this URL (e.g., `https://rag-service-production.up.railway.app`).
 
 ---
