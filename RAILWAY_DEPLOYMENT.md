@@ -57,6 +57,19 @@ I have added the following files to help Railway auto-detect and run your servic
 - `backend/api-gateway/Procfile`: Start command for the Node.js gateway.
 - `frontend/Procfile`: Production serving for the React build.
 
-## 💡 Important Notes
-- **MongoDB Atlas**: Ensure your Atlas "IP Access List" allows access from everywhere (`0.0.0.0/0`) since Railway IPs are dynamic.
-- **Persistent Data**: Railway's disk is ephemeral. ChromaDB will work, but the index will be reset on every deploy unless you use a Railway Volume and mount it to `/app/rag-service/vectorstore`.
+## ❌ Troubleshooting common issues
+
+### 1. MongoDB Connection Failed (Bad Auth)
+If you see `authentication failed` in the logs:
+- **Special Characters**: If your password has `@`, `#`, `!`, etc., you **MUST** URL-encode them.
+  - `@` becomes `%40`
+  - `#` becomes `%23`
+  - `!` becomes `%21`
+- **Whitelist**: Go to MongoDB Atlas -> Network Access and ensure `0.0.0.0/0` is added.
+- **Service Restart**: After changing the variable in Railway, the service should auto-restart. If not, click **Redeploy**.
+
+### 2. Frontend cannot reach API
+If the frontend loads but login/register fails:
+- Check `REACT_APP_API_URL` in the Frontend service. It should be the **API Gateway URL** (not the RAG URL).
+- Make sure it includes `/api` at the end.
+- Verify `FRONTEND_URL` in the API Gateway service matches your frontend's Railway URL.
