@@ -2,6 +2,16 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+// Warn loudly if VITE_API_URL is not set (will use relative '/api' which
+// hits the frontend's own domain — guaranteed to fail in production)
+if (!import.meta.env.VITE_API_URL) {
+  console.warn(
+    '[API] ⚠ VITE_API_URL is not set! API calls will go to relative "/api" path. ' +
+    'In production, set VITE_API_URL to your API Gateway URL and REDEPLOY.'
+  );
+}
+console.log(`[API] Base URL: ${API_BASE}`);
+
 const api = axios.create({ baseURL: API_BASE, timeout: 60000, headers: { 'Content-Type': 'application/json' } });
 
 api.interceptors.request.use((config) => {
@@ -11,7 +21,18 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // Guard: if the API returned HTML instead of JSON, the request
+    // hit the wrong server (frontend static server instead of API Gateway)
+    const contentType = res.headers['content-type'] || '';
+    if (contentType.includes('text/html')) {
+      console.error('[API] Received HTML instead of JSON — request likely hit the frontend server, not the API Gateway.');
+      return Promise.reject(new Error(
+        'Server configuration error: API request returned HTML. Check VITE_API_URL.'
+      ));
+    }
+    return res;
+  },
   (err) => {
     if (err.response?.status === 401) {
       const code = err.response?.data?.code;
