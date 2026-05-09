@@ -47,9 +47,9 @@ This project is optimized for deployment on Railway. Since it's a monorepo with 
 2.  **Settings**:
     - **Root Directory**: `frontend`
     - **Build Command**: `npm run build`
-    - **Start Command**: `npx serve -s build`
+    - **Start Command**: `npx serve -s dist`
 3.  **Variables**:
-    - `REACT_APP_API_URL`: (The public URL of the API Gateway from Step 2 + `/api`)
+    - `VITE_API_URL`: (The public URL of the API Gateway from Step 2 + `/api`)
       - *Example*: `https://api-gateway-production.up.railway.app/api`
 4.  **Networking**: This is your final user-facing URL.
 
@@ -75,6 +75,6 @@ If you see `authentication failed` in the logs:
 
 ### 2. Frontend cannot reach API
 If the frontend loads but login/register fails:
-- Check `REACT_APP_API_URL` in the Frontend service. It should be the **API Gateway URL** (not the RAG URL).
+- Check `VITE_API_URL` in the Frontend service. It should be the **API Gateway URL** (not the RAG URL).
 - Make sure it includes `/api` at the end.
 - Verify `FRONTEND_URL` in the API Gateway service matches your frontend's Railway URL.
