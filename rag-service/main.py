@@ -47,3 +47,10 @@ async def health():
 
 
 app.include_router(router)
+
+try:
+    from mangum import Mangum
+    handler = Mangum(app, lifespan="on")
+except ImportError:
+    pass
+
