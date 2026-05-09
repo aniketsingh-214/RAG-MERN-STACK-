@@ -45,7 +45,18 @@ app.use('/api/upload', uploadRoutes);
 app.use('*', (req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use(errorHandler);
 
-const server = app.listen(PORT, () => logger.info(`API Gateway running on port ${PORT}`));
+const server = app.listen(PORT, () => {
+  logger.info(`API Gateway running on port ${PORT}`);
+  logger.info(`[Startup] Environment diagnostics:`);
+  logger.info(`  NODE_ENV       = ${process.env.NODE_ENV || '(not set)'}`);
+  logger.info(`  MONGODB_URI    = ${process.env.MONGODB_URI ? '***set***' : '⚠ NOT SET'}`);
+  logger.info(`  JWT_SECRET     = ${process.env.JWT_SECRET ? '***set***' : '⚠ NOT SET'}`);
+  logger.info(`  SMTP_HOST      = ${process.env.SMTP_HOST || '⚠ NOT SET'}`);
+  logger.info(`  SMTP_USER      = ${process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 4)}***` : '⚠ NOT SET'}`);
+  logger.info(`  SMTP_PASS      = ${process.env.SMTP_PASS ? '***set***' : '⚠ NOT SET'}`);
+  logger.info(`  RAG_SERVICE_URL = ${process.env.RAG_SERVICE_URL || '(default: http://localhost:8000)'}`);
+  logger.info(`  FRONTEND_URL   = ${process.env.FRONTEND_URL || '(default: http://localhost:3000)'}`);
+});
 
 process.on('SIGTERM', () => server.close(() => process.exit(0)));
 process.on('unhandledRejection', (err) => {

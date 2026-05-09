@@ -18,7 +18,12 @@ const errorHandler = (err, req, res, next) => {
     message = `Invalid ${err.path}: ${err.value}`;
   }
 
-  logger.error(`[${statusCode}] ${req.method} ${req.originalUrl} - ${message}`);
+  logger.error(`[ErrorHandler] [${statusCode}] ${req.method} ${req.originalUrl} — ${message}`, {
+    errorName: err.name,
+    errorCode: err.code,
+    stack: err.stack,
+  });
+
   res.status(statusCode).json({ error: message });
 };
 
