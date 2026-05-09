@@ -9,35 +9,38 @@ class AuthService {
     // Log SMTP config presence at startup (never log actual passwords)
     logger.info('[AuthService] Initializing SMTP transporter', {
       host: process.env.SMTP_HOST || '(not set)',
-      port: process.env.SMTP_PORT || '587',
-      secure: process.env.SMTP_SECURE || 'false',
+      port: process.env.SMTP_PORT || '465',
       user: process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 4)}***` : '(not set)',
     });
 
-    // Use Gmail service shortcut for reliable TLS handling.
-    // Manual host/port config can hang on Railway if STARTTLS negotiation stalls.
+    const isGmail = !process.env.SMTP_HOST || process.env.SMTP_HOST === 'smtp.gmail.com';
+
     const transportConfig = {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      connectionTimeout: 10000,  // 10s to establish TCP connection
-      greetingTimeout: 10000,    // 10s to receive SMTP greeting
-      socketTimeout: 15000,      // 15s for any socket inactivity
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+      // Force IPv4 — Railway/cloud IPv6 routes to Gmail often fail
+      family: 4,
+      tls: { minVersion: 'TLSv1.2', rejectUnauthorized: true },
     };
 
-    if (process.env.SMTP_HOST === 'smtp.gmail.com' || !process.env.SMTP_HOST) {
-      // Gmail: use built-in service preset (handles port + TLS automatically)
-      transportConfig.service = 'gmail';
-      logger.info('[AuthService] Using nodemailer Gmail service preset');
+    if (isGmail) {
+      // Gmail: explicit port 465 + direct TLS (NOT port 587 STARTTLS)
+      transportConfig.host = 'smtp.gmail.com';
+      transportConfig.port = 465;
+      transportConfig.secure = true;
+      logger.info('[AuthService] Gmail SMTP: port=465, secure=true, family=IPv4');
     } else {
-      // Custom SMTP: use explicit host/port/secure
       transportConfig.host = process.env.SMTP_HOST;
       transportConfig.port = parseInt(process.env.SMTP_PORT) || 587;
       transportConfig.secure = process.env.SMTP_SECURE === 'true';
-      logger.info(`[AuthService] Using custom SMTP: ${transportConfig.host}:${transportConfig.port}`);
+      logger.info(`[AuthService] Custom SMTP: ${transportConfig.host}:${transportConfig.port}`);
     }
 
     this.transporter = nodemailer.createTransport(transportConfig);
 
-    // Verify SMTP connection at startup — logs immediately if credentials are wrong
+    // Verify SMTP connection at startup
     this.transporter.verify()
       .then(() => logger.info('[AuthService] ✅ SMTP connection verified successfully'))
       .catch((err) => logger.error(`[AuthService] ❌ SMTP verification FAILED: ${err.message}`, { stack: err.stack }));
