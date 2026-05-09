@@ -14,12 +14,33 @@ class AuthService {
       user: process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 4)}***` : '(not set)',
     });
 
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    });
+    // Use Gmail service shortcut for reliable TLS handling.
+    // Manual host/port config can hang on Railway if STARTTLS negotiation stalls.
+    const transportConfig = {
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      connectionTimeout: 10000,  // 10s to establish TCP connection
+      greetingTimeout: 10000,    // 10s to receive SMTP greeting
+      socketTimeout: 15000,      // 15s for any socket inactivity
+    };
+
+    if (process.env.SMTP_HOST === 'smtp.gmail.com' || !process.env.SMTP_HOST) {
+      // Gmail: use built-in service preset (handles port + TLS automatically)
+      transportConfig.service = 'gmail';
+      logger.info('[AuthService] Using nodemailer Gmail service preset');
+    } else {
+      // Custom SMTP: use explicit host/port/secure
+      transportConfig.host = process.env.SMTP_HOST;
+      transportConfig.port = parseInt(process.env.SMTP_PORT) || 587;
+      transportConfig.secure = process.env.SMTP_SECURE === 'true';
+      logger.info(`[AuthService] Using custom SMTP: ${transportConfig.host}:${transportConfig.port}`);
+    }
+
+    this.transporter = nodemailer.createTransport(transportConfig);
+
+    // Verify SMTP connection at startup — logs immediately if credentials are wrong
+    this.transporter.verify()
+      .then(() => logger.info('[AuthService] ✅ SMTP connection verified successfully'))
+      .catch((err) => logger.error(`[AuthService] ❌ SMTP verification FAILED: ${err.message}`, { stack: err.stack }));
   }
 
   generateOTP() {
