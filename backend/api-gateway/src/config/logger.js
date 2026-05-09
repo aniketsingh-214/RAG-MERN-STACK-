@@ -6,7 +6,7 @@ const logFormat = printf(({ level, message, timestamp, stack }) =>
   `${timestamp} [${level.toUpperCase()}]: ${stack || message}`);
 
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: process.env.LOG_LEVEL,
   format: combine(timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), errors({ stack: true }), logFormat),
   transports: [
     new winston.transports.Console({ format: combine(colorize(), timestamp({ format: 'HH:mm:ss' }), logFormat) }),

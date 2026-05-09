@@ -1,26 +1,27 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from typing import Optional
 
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
-    LLM_MODEL: str = "gemini-1.5-flash"
-    LLM_TEMPERATURE: float = 0.1
-    LLM_MAX_TOKENS: int = 1024
-    EMBEDDING_MODEL: str = "models/embedding-001"
-    VECTORSTORE_PATH: str = "./vectorstore"
-    CHUNK_SIZE: int = 1000
-    CHUNK_OVERLAP: int = 200
-    TOP_K_RESULTS: int = 4
-    SIMILARITY_THRESHOLD: float = 0.3
-    CACHE_DIR: str = "./cache"
-    CACHE_TTL: int = 3600
-    ENABLE_CACHE: bool = True
-    DOCUMENTS_DIR: str = "./documents"
-    HOST: str = "0.0.0.0"
-    PORT: int = 8000
-    LOG_LEVEL: str = "INFO"
+    OPENAI_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: str
+    LLM_MODEL: str
+    LLM_TEMPERATURE: float
+    LLM_MAX_TOKENS: int
+    EMBEDDING_MODEL: str
+    VECTORSTORE_PATH: str
+    CHUNK_SIZE: int
+    CHUNK_OVERLAP: int
+    TOP_K_RESULTS: int
+    SIMILARITY_THRESHOLD: float
+    CACHE_DIR: str
+    CACHE_TTL: int
+    ENABLE_CACHE: bool
+    DOCUMENTS_DIR: str
+    HOST: str
+    PORT: int
+    LOG_LEVEL: str
 
     class Config:
         env_file = ".env"
@@ -30,4 +31,5 @@ class Settings(BaseSettings):
 settings = Settings()
 
 for p in [settings.VECTORSTORE_PATH, settings.CACHE_DIR, settings.DOCUMENTS_DIR]:
-    Path(p).mkdir(parents=True, exist_ok=True)
+    if p:
+        Path(p).mkdir(parents=True, exist_ok=True)

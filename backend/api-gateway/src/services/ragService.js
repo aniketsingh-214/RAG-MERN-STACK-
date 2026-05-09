@@ -1,9 +1,9 @@
 const axios = require('axios');
 const logger = require('../config/logger');
 
-const RAG_URL = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
-const MAX_RETRIES = parseInt(process.env.RAG_MAX_RETRIES) || 3;
-const TIMEOUT = parseInt(process.env.RAG_TIMEOUT_MS) || 60000;
+const RAG_URL = process.env.RAG_SERVICE_URL;
+const MAX_RETRIES = parseInt(process.env.RAG_MAX_RETRIES);
+const TIMEOUT = parseInt(process.env.RAG_TIMEOUT_MS);
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 

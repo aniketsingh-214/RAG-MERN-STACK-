@@ -8,8 +8,8 @@ class AuthService {
   constructor() {
     // Log SMTP config presence at startup (never log actual passwords)
     logger.info('[AuthService] Initializing SMTP transporter', {
-      host: process.env.SMTP_HOST || '(not set)',
-      port: process.env.SMTP_PORT || '465',
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
       user: process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 4)}***` : '(not set)',
     });
 
@@ -33,7 +33,7 @@ class AuthService {
       logger.info('[AuthService] Gmail SMTP: port=465, secure=true, family=IPv4');
     } else {
       transportConfig.host = process.env.SMTP_HOST;
-      transportConfig.port = parseInt(process.env.SMTP_PORT) || 587;
+      transportConfig.port = parseInt(process.env.SMTP_PORT);
       transportConfig.secure = process.env.SMTP_SECURE === 'true';
       logger.info(`[AuthService] Custom SMTP: ${transportConfig.host}:${transportConfig.port}`);
     }
@@ -211,7 +211,7 @@ class AuthService {
     return jwt.sign(
       { userId: user._id.toString(), email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN }
     );
   }
 

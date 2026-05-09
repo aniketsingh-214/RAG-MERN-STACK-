@@ -14,7 +14,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT;
 
 app.set('trust proxy', 1);
 
@@ -22,7 +22,7 @@ connectDB();
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -51,14 +51,14 @@ if (require.main === module) {
   const server = app.listen(PORT, () => {
     logger.info(`API Gateway running on port ${PORT}`);
     logger.info(`[Startup] Environment diagnostics:`);
-    logger.info(`  NODE_ENV       = ${process.env.NODE_ENV || '(not set)'}`);
+    logger.info(`  NODE_ENV       = ${process.env.NODE_ENV}`);
     logger.info(`  MONGODB_URI    = ${process.env.MONGODB_URI ? '***set***' : '⚠ NOT SET'}`);
     logger.info(`  JWT_SECRET     = ${process.env.JWT_SECRET ? '***set***' : '⚠ NOT SET'}`);
-    logger.info(`  SMTP_HOST      = ${process.env.SMTP_HOST || '⚠ NOT SET'}`);
+    logger.info(`  SMTP_HOST      = ${process.env.SMTP_HOST}`);
     logger.info(`  SMTP_USER      = ${process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 4)}***` : '⚠ NOT SET'}`);
     logger.info(`  SMTP_PASS      = ${process.env.SMTP_PASS ? '***set***' : '⚠ NOT SET'}`);
-    logger.info(`  RAG_SERVICE_URL = ${process.env.RAG_SERVICE_URL || '(default: http://localhost:8000)'}`);
-    logger.info(`  FRONTEND_URL   = ${process.env.FRONTEND_URL || '(default: http://localhost:3000)'}`);
+    logger.info(`  RAG_SERVICE_URL = ${process.env.RAG_SERVICE_URL}`);
+    logger.info(`  FRONTEND_URL   = ${process.env.FRONTEND_URL}`);
   });
 
   process.on('SIGTERM', () => server.close(() => process.exit(0)));

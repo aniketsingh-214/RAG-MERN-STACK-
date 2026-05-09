@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_URL;
 
 // Warn loudly if VITE_API_URL is not set (will use relative '/api' which
 // hits the frontend's own domain — guaranteed to fail in production)
