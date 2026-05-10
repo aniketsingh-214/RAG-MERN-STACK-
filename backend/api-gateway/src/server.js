@@ -37,6 +37,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (msg) => logger.http(msg.trim()) } }));
 
+app.get('/', (req, res) => res.json({ message: 'API Gateway is running', health: '/health' }));
 app.get('/health', (req, res) => res.json({ status: 'healthy', service: 'api-gateway' }));
 
 app.use('/api/auth', authRoutes);
