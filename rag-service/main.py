@@ -40,6 +40,15 @@ async def global_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal server error", "error": str(exc)})
 
 
+@app.get("/")
+async def root():
+    return {
+        "message": "RAG Microservice is running",
+        "health_check": "/health",
+        "documentation": "/docs"
+    }
+
+
 @app.get("/health")
 async def health():
     pipeline_ready = hasattr(app.state, "rag_pipeline") and app.state.rag_pipeline is not None
