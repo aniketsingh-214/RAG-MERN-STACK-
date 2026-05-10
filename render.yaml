@@ -1,0 +1,63 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. API Gateway (Node.js)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: api-gateway
+    env: node
+    rootDir: backend/api-gateway
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: RAG_SERVICE_URL
+        fromService:
+          type: web
+          name: rag-service
+          property: host
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 465
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+
+  # ----------------------------------------------------------------------------
+  # 2. RAG Service (Python)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: rag-service
+    env: python
+    rootDir: rag-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: chmod +x start.sh && ./start.sh
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gemini-1.5-flash
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: VECTORSTORE_PATH
+        value: ./vectorstore
+      - key: DOCUMENTS_DIR
+        value: ./documents
+      - key: CACHE_DIR
+        value: ./cache

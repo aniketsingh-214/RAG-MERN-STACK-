@@ -14,7 +14,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 10000;
 
 app.set('trust proxy', 1);
 

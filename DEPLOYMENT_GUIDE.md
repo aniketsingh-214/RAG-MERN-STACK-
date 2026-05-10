@@ -1,60 +1,67 @@
-# 🚀 Deployment Guide: Netlify & Vercel
+# 🚀 Deployment Guide: Render
 
-This project is now configured for deployment on **Netlify** (Backend & RAG) and **Vercel** (Frontend).
+This project is optimized for deployment on **Render** using Web Services and Blueprints.
 
 ---
 
-## 🎨 1. Frontend (Vercel)
+## 🎨 1. Frontend (Render Static Site)
 
-1.  **Platform**: [Vercel](https://vercel.com/)
-2.  **Project Settings**:
-    - **Framework Preset**: Vite
-    - **Root Directory**: `frontend`
+1.  **Platform**: [Render](https://render.com/)
+2.  **Service Type**: Static Site
+3.  **Project Settings**:
     - **Build Command**: `npm run build`
-    - **Output Directory**: `dist`
-3.  **Environment Variables**:
-    - `VITE_API_URL`: The URL of your AI Gateway on Netlify (e.g., `https://your-api-gateway.netlify.app/api`)
+    - **Publish Directory**: `frontend/dist`
+4.  **Environment Variables**:
+    - `VITE_API_URL`: The URL of your AI Gateway on Render (e.g., `https://api-gateway.onrender.com/api`)
 
 ---
 
-## 🌐 2. AI Gateway (Netlify)
+## 🏗️ 2. Render Deployment (Recommended)
 
-1.  **Platform**: [Netlify](https://app.netlify.com/)
-2.  **Project Settings**:
-    - **Root Directory**: `backend/api-gateway`
-    - **Build Command**: `npm install`
-    - **Functions Directory**: `netlify/functions`
-3.  **Environment Variables**:
+Render is the recommended platform as it supports persistent web services and internal networking.
+
+### Option A: Blueprint Deployment (Fastest)
+1.  Connect your GitHub repository to [Render](https://dashboard.render.com/).
+2.  Click **"New"** -> **"Blueprint"**.
+3.  Render will automatically detect the `render.yaml` file and configure both the **API Gateway** and **RAG Service**.
+4.  Fill in the required Environment Variables in the Render Dashboard:
     - `MONGODB_URI`: Your MongoDB Atlas connection string.
-    - `JWT_SECRET`: A random secret key.
-    - `SMTP_HOST`: `smtp.gmail.com`
-    - `SMTP_PORT`: `465` (Recommended for SSL)
-    - `SMTP_SECURE`: `true`
-    - `SMTP_USER`: Your Gmail address.
-    - `SMTP_PASS`: Your Gmail App Password.
-    - `RAG_SERVICE_URL`: The URL of your RAG Service on Netlify (e.g., `https://your-rag-service.netlify.app`)
-    - `FRONTEND_URL`: Your Vercel frontend URL.
-
----
-
-## 🏗️ 3. RAG Service (Netlify)
-
-1.  **Platform**: [Netlify](https://app.netlify.com/)
-2.  **Project Settings**:
-    - **Root Directory**: `rag-service`
-    - **Build Command**: `pip install -r requirements.txt`
-    - **Functions Directory**: `netlify/functions`
-3.  **Environment Variables**:
     - `GEMINI_API_KEY`: Your Google Gemini API key.
-    - `LLM_MODEL`: `gemini-1.5-flash`
+    - `JWT_SECRET`: A random secret key for auth.
+    - `FRONTEND_URL`: Your deployed frontend URL.
 
-> [!WARNING]
-> **Persistence Note**: Netlify Functions are serverless and have an ephemeral filesystem. Local storage (like `./vectorstore` or `./documents`) will be lost between requests. For production use, consider using a managed vector database (like MongoDB Atlas Vector Search or Pinecone).
+### Option B: Manual Web Service Deployment
+If you prefer to set them up manually:
+
+#### **API Gateway**
+- **Service Type**: Web Service
+- **Runtime**: Node
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
+- **Environment Variables**: Add all from `.env`, ensuring `PORT` is `10000`.
+
+#### **RAG Service**
+- **Service Type**: Web Service
+- **Runtime**: Python
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `chmod +x start.sh && ./start.sh`
+- **Environment Variables**: Add all from `.env`, ensuring `PORT` is `8000`.
+
+> [!IMPORTANT]
+> **Internal Networking**: When using the Blueprint, the `RAG_SERVICE_URL` is automatically configured to use Render's internal network (e.g., `http://rag-service:8000`), which is faster and more secure.
 
 ---
 
 ## 📧 Email Configuration (SMTP)
 
-We have reverted to the **SMTP-based approach** using Nodemailer. 
-- Use **Port 465** with **SSL (secure: true)** for the best compatibility in cloud environments.
-- Ensure you use a **Gmail App Password**, not your regular password.
+We use **SMTP** via Nodemailer for reliable email delivery.
+- **Port**: 465
+- **Security**: SSL (secure: true)
+- **Authentication**: Use a **Gmail App Password**, not your regular password.
+
+---
+
+## ⚠️ Persistence Note
+Render's free tier uses ephemeral storage. The vector database (`./vectorstore`) and uploaded documents will be reset on service restarts. For permanent storage, consider:
+1. Using Render's **Disk** mount (Paid tier).
+2. Switching to a managed vector database like **MongoDB Atlas Vector Search**.
