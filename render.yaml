@@ -1,6 +1,21 @@
 services:
   # ----------------------------------------------------------------------------
-  # 1. API Gateway (Node.js)
+  # 1. Frontend (Static Site)
+  # ----------------------------------------------------------------------------
+  - type: static
+    name: frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    routes:
+      # Fix for Single Page Application (SPA) refresh issue
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # ----------------------------------------------------------------------------
+  # 2. API Gateway (Node.js)
   # ----------------------------------------------------------------------------
   - type: web
     name: api-gateway
@@ -18,7 +33,10 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        sync: false
+        fromService:
+          type: static
+          name: frontend
+          property: url
       - key: RAG_SERVICE_URL
         fromService:
           type: web
@@ -36,7 +54,7 @@ services:
         sync: false
 
   # ----------------------------------------------------------------------------
-  # 2. RAG Service (Python)
+  # 3. RAG Service (Python)
   # ----------------------------------------------------------------------------
   - type: web
     name: rag-service

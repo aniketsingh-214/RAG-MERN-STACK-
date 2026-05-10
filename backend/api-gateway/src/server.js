@@ -22,7 +22,15 @@ connectDB();
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: (origin, callback) => {
+    const allowedOrigins = [process.env.FRONTEND_URL];
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked for origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
